@@ -1,0 +1,6 @@
+#ifndef MBLOADER_UTILS_H
+#define MBLOADER_UTILS_H
+
+#define MBLOADER_FUNC_INFO (Q_FUNC_INFO + u" - "_s)
+
+#endif // MBLOADER_UTILS_H

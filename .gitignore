@@ -1,0 +1,5 @@
+.cache
+.clang-format
+*.user
+build*
+compile_commands.json
