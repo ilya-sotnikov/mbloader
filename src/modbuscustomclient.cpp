@@ -12,7 +12,7 @@ ModbusCustomClient::ModbusCustomClient(QObject *parent) : QModbusRtuSerialClient
             [](const QModbusResponse &response) -> int { return response.dataSize(); });
 }
 
-void ModbusCustomClient::setSettings(Settings settings)
+void ModbusCustomClient::setSettings(const Settings &settings)
 {
     setConnectionParameter(QModbusDevice::SerialPortNameParameter, settings.name);
     setConnectionParameter(QModbusDevice::SerialBaudRateParameter, settings.baudRate);
@@ -38,7 +38,7 @@ void ModbusCustomClient::modbusCustomFunction(Subfunctions subfunction, QByteArr
                     result = reply->result().values();
                     emit finished(true);
                 } else if (reply->error() == QModbusDevice::ProtocolError) {
-                    // otherwise runtime error
+                    // a hack, otherwise runtime error
                     // load of value 4294967276, which is not a valid value for type 'FunctionCode'
                     auto fixedResponse{ reply->rawResult() };
                     fixedResponse.setFunctionCode(static_cast<QModbusPdu::FunctionCode>(
@@ -55,8 +55,8 @@ void ModbusCustomClient::modbusCustomFunction(Subfunctions subfunction, QByteArr
             });
         } else {
             reply->deleteLater();
-            emit finished(false);
             errorStr = u"Broadcast is not supported"_s;
+            emit finished(false);
         }
     } else {
         errorStr = errorString();

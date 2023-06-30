@@ -6,27 +6,30 @@ ModbusLoader::ModbusLoader(QObject *parent) : modbusClient{ new ModbusCustomClie
 {
     connect(modbusClient, &ModbusCustomClient::finished, this, [this](bool success) {
         if (!success) {
-            emit finished(false, modbusClient->getErrorString());
+            errorStr = modbusClient->getErrorString();
+            emit finished(false);
         } else {
             executeStateMachine();
         }
     });
 }
 
-void ModbusLoader::connectDevice()
+bool ModbusLoader::connectDevice()
 {
-    if (!modbusClient->connectDevice())
-        emit finished(false, modbusClient->errorString());
+    if (!modbusClient->connectDevice()) {
+        errorStr = u"Connect: "_s + modbusClient->errorString();
+        return false;
+    }
+
+    return true;
 }
 
-void ModbusLoader::program(const QString &fileName, int serverAddress)
+void ModbusLoader::program(const QString &fileName)
 {
-    modbusClient->setServerAddress(serverAddress);
-
     fileFirmware.setFileName(fileName);
     if (!fileFirmware.open(QIODeviceBase::ReadOnly)) {
-        state = State::Finished;
-        emit finished(false, fileFirmware.errorString());
+        errorStr = fileFirmware.errorString();
+        emit finished(false);
         return;
     }
 
@@ -38,6 +41,7 @@ void ModbusLoader::executeStateMachine()
 {
     switch (state) {
     case State::Idle:
+        errorStr.clear();
         checksumFirmware = 0;
         state = State::EraseFlash;
         break;
@@ -47,15 +51,15 @@ void ModbusLoader::executeStateMachine()
             state = State::ProgramFlash;
             emit newMessageAvailable(u"Erased flash"_s);
         } else {
-            state = State::Finished;
-            emit finished(false, u"Erasing flash failed"_s);
+            errorStr = u"Erasing flash failed"_s;
+            emit finished(false);
         }
         break;
 
     case State::ProgramFlash:
         if (modbusClient->getResult().front() != 0) {
-            emit finished(false, u"Programming flash failed"_s);
-            state = State::Finished;
+            errorStr = u"Programming flash failed"_s;
+            emit finished(false);
         } else if (fileFirmware.atEnd()) {
             emit newMessageAvailable(
                     u"Flash programmed (fw size = %1 bytes)"_s.arg(fileFirmware.size()));
@@ -69,8 +73,8 @@ void ModbusLoader::executeStateMachine()
                     u"Flash verified (checksum = 0x%1)"_s.arg(checksumFirmware, 0, 16));
             state = State::ResetDevice;
         } else {
-            state = State::Finished;
-            emit finished(false, u"Verifying flash failed"_s);
+            errorStr = u"Verifying flash failed"_s;
+            emit finished(false);
         }
         break;
 
@@ -79,8 +83,8 @@ void ModbusLoader::executeStateMachine()
             state = State::Finished;
             emit newMessageAvailable(u"Reset device"_s);
         } else {
-            state = State::Finished;
-            emit finished(false, u"Resetting device failed"_s);
+            errorStr = u"Resetting device failed"_s;
+            emit finished(false);
         }
         break;
 
@@ -113,12 +117,11 @@ void ModbusLoader::executeStateMachine()
 
         QByteArray byteArray;
         QDataStream dataStream{ &byteArray, QIODeviceBase::WriteOnly };
-        dataStream.setByteOrder(QDataStream::BigEndian); // for Modbus
 
         auto readCount{ fileFirmware.read(firmwareTemp, sizeof(firmwareTemp)) };
         if (readCount == -1) {
-            state = State::Finished;
-            emit finished(false, fileFirmware.errorString());
+            errorStr = fileFirmware.errorString();
+            emit finished(false);
             return;
         } else if (readCount == 0) {
             return;

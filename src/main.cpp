@@ -4,8 +4,44 @@
 #include <qcommandlineparser.h>
 #include <qvariant.h>
 #include <qtimer.h>
+#include <QMetaEnum>
 
 using namespace Qt::Literals::StringLiterals;
+
+template<typename EnumType>
+static bool validateEnum(EnumType enumValue);
+static bool validateClientSettings(ModbusCustomClient::Settings &settings);
+
+static bool validateClientSettings(ModbusCustomClient::Settings &settings)
+{
+    if (!validateEnum(settings.baudRate))
+        return false;
+    if (!validateEnum(settings.dataBits))
+        return false;
+    if (!validateEnum(settings.parity))
+        return false;
+    if (!validateEnum(settings.stopBits))
+        return false;
+
+    if (settings.name.isEmpty())
+        return false;
+
+    if (settings.serverAddress < 1 || settings.serverAddress > 255)
+        return false;
+
+    return true;
+}
+
+template<typename EnumType>
+static bool validateEnum(EnumType enumValue)
+{
+    const auto metaEnum{ QMetaEnum::fromType<EnumType>() };
+    for (int i{ 0 }; i < metaEnum.keyCount(); ++i) {
+        if (enumValue == metaEnum.value(i))
+            return true;
+    }
+    return false;
+}
 
 int main(int argc, char *argv[])
 {
@@ -90,24 +126,30 @@ int main(int argc, char *argv[])
          << u"Stop bits: %1\n"_s.arg(QVariant::fromValue(settings.stopBits).toString())
          << u"Server address: %1\n"_s.arg(settings.serverAddress) << Qt::endl;
 
+    if (!validateClientSettings(settings)) {
+        cerr << "Modbus client settings are incorrect" << Qt::endl;
+        return 1;
+    }
+
     ModbusLoader modbusLoader{ &app };
 
     modbusLoader.setDeviceSettings(settings);
 
-    QObject::connect(&modbusLoader, &ModbusLoader::finished, [&](bool status, const QString &msg) {
-        if (!status)
-            cerr << msg << Qt::endl;
-        QCoreApplication::exit(!status);
+    if (!modbusLoader.connectDevice()) {
+        cerr << modbusLoader.getErrorString() << Qt::endl;
+        return 1;
+    }
+
+    QObject::connect(&modbusLoader, &ModbusLoader::finished, [&](bool success) {
+        if (!success)
+            cerr << modbusLoader.getErrorString() << Qt::endl;
+        QCoreApplication::exit(!success);
     });
 
-    QObject::connect(&modbusLoader, &ModbusLoader::newMessageAvailable, [&](const QString &msg) {
-        cout << msg << Qt::endl;
-    });
+    QObject::connect(&modbusLoader, &ModbusLoader::newMessageAvailable,
+                     [&](const QString &msg) { cout << msg << Qt::endl; });
 
-    QTimer::singleShot(0, &modbusLoader, [&]() {
-        modbusLoader.connectDevice();
-        modbusLoader.program(firmwareFile, 1);
-    });
+    QTimer::singleShot(0, &modbusLoader, [&]() { modbusLoader.program(firmwareFile); });
 
     return app.exec();
 }

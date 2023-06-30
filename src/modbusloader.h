@@ -15,12 +15,13 @@ class ModbusLoader : public QObject
 
 public:
     explicit ModbusLoader(QObject *parent = nullptr);
-    void program(const QString &fileName, int serverAddress);
-    void setDeviceSettings(ModbusCustomClient::Settings settings)
+    void program(const QString &fileName);
+    [[nodiscard]] auto &getErrorString() const { return errorStr; }
+    void setDeviceSettings(const ModbusCustomClient::Settings &settings)
     {
         modbusClient->setSettings(settings);
     };
-    void connectDevice();
+    [[nodiscard]] bool connectDevice();
 
 private:
     enum class State {
@@ -35,12 +36,13 @@ private:
     ModbusCustomClient *modbusClient{ nullptr };
     QFile fileFirmware;
     quint8 checksumFirmware{ 0 };
+    QString errorStr;
     State state{ State::Idle };
 
     void executeStateMachine();
 
 signals:
-    void finished(bool status, const QString &msg = {});
+    void finished(bool success);
     void newMessageAvailable(const QString &msg);
 };
 

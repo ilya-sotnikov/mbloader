@@ -23,7 +23,7 @@ public:
         int serverAddress;
     };
 
-    void setSettings(Settings settings);
+    void setSettings(const Settings &settings);
     void setServerAddress(int serverAddress) { this->serverAddress = serverAddress; };
     [[nodiscard]] auto &getErrorString() const { return errorStr; };
     [[nodiscard]] auto &getResult() const { return result; };

@@ -24,7 +24,6 @@ add_executable(${PROJECT_NAME}
   src/modbusloader.cpp
   src/modbuscustomclient.h
   src/modbuscustomclient.cpp
-  src/mbloader_utils.h
 )
 
 target_link_libraries(${PROJECT_NAME}
