@@ -1,6 +1,8 @@
 # mbloader
 
-Modbus RTU firmware update utility written in C++/Qt
+Modbus RTU firmware update utility written in C++/Qt.
+
+Bootloader implementation: [stm32-modbus-bootloader](https://github.com/ilya-sotnikov/stm32-modbus-bootloader).
 
 ## Usage
 
